@@ -12,7 +12,6 @@ const board = ChessBoard('board', {
 
 // Handle piece drops
 function onDrop(source, target) {
-    // Remove the piece from the board
     const move = game.move({
         from: source,
         to: target,
@@ -36,13 +35,71 @@ function renderMove() {
     }
 }
 
-// Simple AI move (random valid move)
-function makeBotMove() {
-    const possibleMoves = game.ugly_moves();
-    const randomIndex = Math.floor(Math.random() * possibleMoves.length);
-    const move = possibleMoves[randomIndex];
+// Minimax implementation
+function minimax(depth, isMaximizing) {
+    if (game.game_over()) {
+        return evaluateBoard();
+    }
 
-    game.ugly_move(move);
+    const possibleMoves = game.ugly_moves();
+    
+    if (isMaximizing) {
+        let bestValue = -Infinity;
+        for (let move of possibleMoves) {
+            game.ugly_move(move);
+            bestValue = Math.max(bestValue, minimax(depth - 1, false));
+            game.undo();
+        }
+        return bestValue;
+    } else {
+        let bestValue = Infinity;
+        for (let move of possibleMoves) {
+            game.ugly_move(move);
+            bestValue = Math.min(bestValue, minimax(depth - 1, true));
+            game.undo();
+        }
+        return bestValue;
+    }
+}
+
+// Evaluate the board position
+function evaluateBoard() {
+    // Simple evaluation function
+    const pieceValues = {
+        'p': 1, 'r': 5, 'n': 3, 'b': 3, 'q': 9, 'k': 0,
+        'P': -1, 'R': -5, 'N': -3, 'B': -3, 'Q': -9, 'K': 0
+    };
+    let totalEvaluation = 0;
+
+    for (let piece of game.board()) {
+        for (let square of piece) {
+            if (square) {
+                totalEvaluation += pieceValues[square.type] * (square.color === 'w' ? 1 : -1);
+            }
+        }
+    }
+
+    return totalEvaluation;
+}
+
+// Bot move using Minimax
+function makeBotMove() {
+    let bestMove = null;
+    let bestValue = -Infinity;
+
+    const possibleMoves = game.ugly_moves();
+    for (let move of possibleMoves) {
+        game.ugly_move(move);
+        const boardValue = minimax(3, false); // Change depth as needed
+        game.undo();
+        
+        if (boardValue > bestValue) {
+            bestValue = boardValue;
+            bestMove = move;
+        }
+    }
+
+    game.ugly_move(bestMove);
     renderMove();
 }
 
