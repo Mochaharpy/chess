@@ -1,112 +1,112 @@
-const boardElement = document.getElementById('board');
-const resultElement = document.getElementById('result');
-
-let game = new Chess();
-
 const board = ChessBoard('board', {
     draggable: true,
     position: 'start',
-    onDrop: onDrop,
-    onSnapEnd: onSnapEnd,
+    onDrop: handleMove,
 });
 
-// Handle piece drops
-function onDrop(source, target) {
-    const move = game.move({
+const chess = new Chess();
+
+function handleMove(source, target) {
+    const move = chess.move({
         from: source,
         to: target,
-        promotion: 'q' // promote to queen
+        promotion: 'q', // Automatically promote to a queen
     });
 
-    // If the move was illegal, snap back the piece
-    if (move === null) return 'snapback';
-
-    renderMove();
-    if (!game.game_over()) {
-        setTimeout(makeBotMove, 250); // Make bot move after a short delay
+    if (move === null) {
+        return 'snapback'; // Illegal move, snap back
     }
+
+    renderMoveHistory();
+    updateEvaluation();
+    setTimeout(getAIMove, 250); // Allow a short delay before the AI's move
 }
 
-// Update the board after a move
-function renderMove() {
-    board.position(game.fen());
-    if (game.game_over()) {
-        resultElement.innerHTML = 'Game over';
-    }
+function renderMoveHistory() {
+    const moves = chess.history();
+    console.log(moves);
 }
 
-// Minimax implementation
-function minimax(depth, isMaximizing) {
-    if (game.game_over()) {
-        return evaluateBoard();
-    }
+function updateEvaluation() {
+    const evaluationValue = evaluateBoard();
+    const evalText = document.getElementById('eval-text');
+    const evalIndicator = document.getElementById('eval-indicator');
 
-    const possibleMoves = game.ugly_moves();
-    
-    if (isMaximizing) {
-        let bestValue = -Infinity;
-        for (let move of possibleMoves) {
-            game.ugly_move(move);
-            bestValue = Math.max(bestValue, minimax(depth - 1, false));
-            game.undo();
-        }
-        return bestValue;
+    evalText.innerText = evaluationValue.toFixed(2);
+
+    // Update the height of the evaluation indicator based on the value
+    const percentage = Math.min(Math.max(evaluationValue / 10, -1), 1); // Normalize between -1 and 1
+    evalIndicator.style.height = `${(1 - percentage) * 100}%`; // Invert for visual
+    evalIndicator.style.background = percentage > 0 ? 'green' : 'red'; // Green for positive, red for negative
+}
+
+function getAIMove() {
+    const difficulty = document.getElementById('difficulty').value;
+    let move;
+
+    if (difficulty === 'easy') {
+        move = getRandomMove();
+    } else if (difficulty === 'medium') {
+        move = getMediumMove();
     } else {
-        let bestValue = Infinity;
-        for (let move of possibleMoves) {
-            game.ugly_move(move);
-            bestValue = Math.min(bestValue, minimax(depth - 1, true));
-            game.undo();
-        }
-        return bestValue;
-    }
-}
-
-// Evaluate the board position
-function evaluateBoard() {
-    // Simple evaluation function
-    const pieceValues = {
-        'p': 1, 'r': 5, 'n': 3, 'b': 3, 'q': 9, 'k': 0,
-        'P': -1, 'R': -5, 'N': -3, 'B': -3, 'Q': -9, 'K': 0
-    };
-    let totalEvaluation = 0;
-
-    for (let piece of game.board()) {
-        for (let square of piece) {
-            if (square) {
-                totalEvaluation += pieceValues[square.type] * (square.color === 'w' ? 1 : -1);
-            }
-        }
+        move = getBestMove();
     }
 
-    return totalEvaluation;
+    chess.move(move);
+    board.move(move);
+    renderMoveHistory();
+    updateEvaluation(); // Update evaluation after AI's move
 }
 
-// Bot move using Minimax
-function makeBotMove() {
-    let bestMove = null;
+function getRandomMove() {
+    const legalMoves = chess.legalMoves();
+    return legalMoves[Math.floor(Math.random() * legalMoves.length)];
+}
+
+function getMediumMove() {
+    const legalMoves = chess.legalMoves();
+    const captures = legalMoves.filter(move => chess.get(move).captured);
+    if (captures.length > 0) {
+        return captures[Math.floor(Math.random() * captures.length)];
+    }
+    return getRandomMove();
+}
+
+function getBestMove() {
+    const legalMoves = chess.legalMoves();
+    let bestMove = legalMoves[0];
     let bestValue = -Infinity;
 
-    const possibleMoves = game.ugly_moves();
-    for (let move of possibleMoves) {
-        game.ugly_move(move);
-        const boardValue = minimax(3, false); // Change depth as needed
-        game.undo();
-        
-        if (boardValue > bestValue) {
-            bestValue = boardValue;
+    for (const move of legalMoves) {
+        chess.move(move);
+        const moveValue = evaluateBoard();
+        chess.undo();
+
+        if (moveValue > bestValue) {
+            bestValue = moveValue;
             bestMove = move;
         }
     }
-
-    game.ugly_move(bestMove);
-    renderMove();
+    
+    return bestMove;
 }
 
-// Reset the game
-function onSnapEnd() {
-    board.position(game.fen());
-}
+function evaluateBoard() {
+    let totalValue = 0;
+    const pieceValues = {
+        'p': 1,
+        'r': 5,
+        'n': 3,
+        'b': 3,
+        'q': 9,
+        'k': 0 // King has no value in terms of piece evaluation
+    };
 
-// Initialize the board
-board.position(game.fen());
+    for (let piece of chess.board()) {
+        if (piece) {
+            const value = pieceValues[piece.type] || 0;
+            totalValue += piece.color === 'w' ? value : -value;
+        }
+    }
+    return totalValue;
+}
