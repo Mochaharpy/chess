@@ -4,11 +4,19 @@ body {
 
 #board {
     width: 400px;
-    margin: 20px auto;
+    margin: 0 auto;
 }
 
-#result {
-    text-align: center;
-    font-size: 20px;
-    margin-top: 20px;
+#eval-bar {
+    background: lightgray;
+    border: 1px solid #333;
+    border-radius: 5px;
+    position: relative;
+}
+
+#eval-indicator {
+    position: absolute;
+    bottom: 0;
+    background: green; /* Default color */
+    transition: height 0.3s;
 }
